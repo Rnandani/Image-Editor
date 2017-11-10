@@ -82,59 +82,38 @@ def eyecorrection(canvas):
         #Convert image to grayscale 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray,scaleFactor=1.3, minNeighbors=4)
-        #print("Number of faces",len(faces))
+
+        def fillHoles( mask ):
+            maskFloodfill = mask.copy()
+            h, w = maskFloodfill.shape[:2]
+            maskTemp = numpy.zeros((h+2, w+2), numpy.uint8)
+            cv2.floodFill(maskFloodfill, maskTemp, (0, 0), 255)
+            mask2 = cv2.bitwise_not(maskFloodfill)
+            return mask2 | mask
 
         if len(faces)>0:    
             for (x,y,w,h) in faces:
                 cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
-                #cv2.imshow('img1', img)
                 roi_gray = gray[y:y+h, x:x+w]
                 roi_color = img[y:y+h, x:x+w]
 
                 eyes = eye_cascade.detectMultiScale(roi_color,scaleFactor=1.3, minNeighbors=1)
-                #print("Number of eyes",len(eyes))
 
                 for (ex, ey, ew, eh) in eyes:
-                    #cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
-                    #cv2.imshow('img2', roi_color)
-                    #cv2.waitKey(0)
                     eye = roi_color[ey:ey+eh, ex:ex+ew]
-                    #cv2.imshow('roi_color', eye)
-
-                    hsv = cv2.cvtColor(eye, cv2.COLOR_BGR2HSV)
-
-                    h = hsv[:,:,0]
-                    s = hsv[:,:,1]
-                    v = hsv[:,:,2]
 
                     b = eye[:, :, 0]
                     g = eye[:, :, 1]
                     r = eye[:, :, 2]
                     bg = cv2.add(b,g)
-                    #bg2 = cv2.add(b*b,g*g)
-                    #rb = cv2.add(r,b)
-                    #rgb = cv2.add(rb,g)
                     mask = (r > 100) & (r > bg)
-                    #mask = (r > 120) & (r > 0.4*rgb) & (g > 0.31*rgb) & (b < 0.36*rgb)
                     mask = mask.astype(numpy.uint8)*255
                     ker1 = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
                     mask = cv2.erode(mask,ker1,iterations = 1)
 
-
-                def fillHoles( mask ):
-                    maskFloodfill = mask.copy()
-                    h, w = maskFloodfill.shape[:2]
-                    maskTemp = numpy.zeros((h+2, w+2), numpy.uint8)
-                    cv2.floodFill(maskFloodfill, maskTemp, (0, 0), 255)
-                    mask2 = cv2.bitwise_not(maskFloodfill)
-                    return mask2 | mask
-
-
                 # Clean up mask by filling holes and dilating
                 mask = fillHoles(mask)
-                #print("maskfill",mask)
                 ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(6,6))
-                #mask = cv2.dilate(mask,ker,iterations = 1)
                 mask = cv2.dilate(mask, None, anchor=(-1, -1), iterations=3, borderType=1, borderValue=1)
 
 
@@ -151,39 +130,20 @@ def eyecorrection(canvas):
                 numpy.copyto(eyeOut, mean, where=mask)
 
                 # Copy the fixed eye to the output image. 
-                #imgOut[ey+y:ey+y+eh, ex+x:ex+x+ew, :] = eyeOut
                 imgOut[ey+y:ey+eh+y, ex+x:ex+ew+x, :] = eyeOut
 
         else:
             eyes = eye_cascade.detectMultiScale(img,scaleFactor=1.3, minNeighbors=4)
-            #print("Number of eyes",len(eyes))
             for (ex, ey, ew, eh) in eyes:
-
                 eye = img[ey:ey+eh, ex:ex+ew]
-                #cv2.imshow('roi_color', eye)
 
                 b = eye[:, :, 0]
                 g = eye[:, :, 1]
                 r = eye[:, :, 2]
 
                 bg = cv2.add(b,g)
-                #rb = cv2.add(r,b)
-                #rgb = cv2.add(rb,g)
                 mask = (r > 70) & (r > bg) 
-                #mask = (r > 150) & (r > 0.4*rgb) & (g > 0.31*rgb) & (b < 0.36*rgb)
                 mask = mask.astype(numpy.uint8)*255
-                #ker1 = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
-                #mask = cv2.erode(mask,ker1,iterations = 1)
-
-
-            def fillHoles( mask ):
-                maskFloodfill = mask.copy()
-                h, w = maskFloodfill.shape[:2]
-                maskTemp = numpy.zeros((h+2, w+2), numpy.uint8)
-                cv2.floodFill(maskFloodfill, maskTemp, (0, 0), 255)
-                mask2 = cv2.bitwise_not(maskFloodfill)
-                return mask2 | mask
-
 
             # Clean up mask by filling holes and dilating
             mask = fillHoles(mask)
@@ -217,65 +177,51 @@ def autoenhance(canvas):
         print(c)
         if (c==3):
             #Denoising
-            img = cv2.medianBlur(img,5)
+            img = cv2.medianBlur(img,3)
             dst = cv2.fastNlMeansDenoisingColored(img,None,3,3,7,21)
-            #cv2.imshow('dst',dst)
 
             b = dst[:,:,0]
-            #cv2.imshow('b',b)
             g = dst[:,:,1]
-            #cv2.imshow('g',g)
             r = dst[:,:,2]
-            #cv2.imshow('r',r)
 
             #using CLAHE (Contrast Limited Adaptive Histogram Equalization)
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
 
             Ab = clahe.apply(b)
-            #cv2.imshow('b1',Ab1)
             Ag = clahe.apply(g)
-            #cv2.imshow('g1',Ag1)
             Ar = clahe.apply(r)
-            #cv2.imshow('r1',Ar1)
-
 
             #Image Sharpening
             Lb = cv2.Laplacian(Ab,cv2.CV_64F)
             abs_Lb = numpy.absolute(Lb)
             Lb_8u = numpy.uint8(abs_Lb)
-            #cv2.imshow('Lb',Lb_8u)
 
             Lg = cv2.Laplacian(Ag,cv2.CV_64F)
             abs_Lg = numpy.absolute(Lg)
             Lg_8u = numpy.uint8(abs_Lg)
-            #cv2.imshow('Lg',Lg_8u)
 
             Lr = cv2.Laplacian(Ar,cv2.CV_64F)
             abs_Lr = numpy.absolute(Lr)
             Lr_8u = numpy.uint8(abs_Lr)
-            #cv2.imshow('Lr',Lr_8u)
 
             Ab1 = cv2.add(Ab,Lb_8u)
-            #cv2.imshow('Ab',Ab1)
             Ag1 = cv2.add(Ag,Lg_8u) 
-            #cv2.imshow('Ag',Ag1)
             Ar1 = cv2.add(Ar,Lr_8u)
-            #cv2.imshow('Ar',Ar1)
 
             out = cv2.merge((Ab1,Ag1,Ar1))
 
         else:
             #Denoising
-            dst = cv2.fastNlMeansDenoising(img,None,5,7,21)
-            #cv2.imshow('dst',dst)
+            #(h, templatewindow size, searchwindow size)
+            dst = cv2.fastNlMeansDenoising(img,None,3,7,9) 
 
             #Histrogram equalization
-            equ = cv2.equalizeHist(dst)
+            #equ = cv2.equalizeHist(dst)
 
             #Contrast Enhancement
             #using CLAHE (Contrast Limited Adaptive Histogram Equalization)
-            #clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(21,21))
-            #equ = clahe.apply(dst)
+            clahe = cv2.createCLAHE(clipLimit=10, tileGridSize=(8,8))
+            equ = clahe.apply(dst)
 
             #Image Sharpening
             dst_sharp = cv2.Laplacian(dst,cv2.CV_64F)
@@ -283,7 +229,7 @@ def autoenhance(canvas):
             dst_8u = numpy.uint8(abs_dst)
             #cv2.imshow('Lb',dst_8u)
 
-            out = cv2.add(equ,dst_8u)
+            out = cv2.subtract(equ,dst_8u)
             #cv2.imshow('out',out)
     cv2.imwrite('Out1.jpg', out)
     im= Image.open('Out1.jpg')
