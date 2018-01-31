@@ -1,7 +1,7 @@
-My project is a  Image Editor with Basic Image Enhancement options like cropping, rotating, 
+My project is an Image Editor with Basic Image Enhancement options like cropping, rotating, 
 colour enhancements, colour Pop and various filters.
 
-The only library I have  which is not built in is the Python Imaging Library.
+The only library I have,  which is not built-in is the Python Imaging Library.
 It can be downloaded via this link.
 ( http://www.pythonware.com/products/pil/)
 
